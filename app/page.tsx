@@ -113,14 +113,6 @@ export default function Home() {
               >
                 Játék indítása
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-amber-300 text-amber-100 hover:bg-amber-800/30 px-8 py-6 text-lg"
-                onClick={() => setShowAgeVerification(true)}
-              >
-                Felfedezés
-              </Button>
             </div>
 
             <div className="mt-16 relative">
