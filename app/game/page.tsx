@@ -17,6 +17,8 @@ interface Cell {
   revealed: boolean
   type: ItemType
   points: number
+  isShuffling?: boolean
+  revealOrder?: number | null
 }
 
 // Játék konfigurációs interfésze
@@ -59,6 +61,7 @@ export default function GamePage() {
   const [lastRevealedCells, setLastRevealedCells] = useState<number[]>([])
   const [isAnimating, setIsAnimating] = useState(false)
   const [lastPointsChange, setLastPointsChange] = useState(0)
+  const [revealedRow, setRevealedRow] = useState<Cell[]>([])
 
   // Játék inicializálása
   useEffect(() => {
@@ -96,6 +99,8 @@ export default function GamePage() {
       revealed: false,
       type: items[index],
       points: gameConfig.pointsMap[items[index]],
+      isShuffling: false,
+      revealOrder: null,
     }))
 
     setCells(newCells)
@@ -104,6 +109,7 @@ export default function GamePage() {
     setRemainingMoves(10)
     setLastRevealedCells([])
     setLastPointsChange(0)
+    setRevealedRow([])
   }
 
   // Tömb keverő függvény
@@ -121,6 +127,17 @@ export default function GamePage() {
     if (gameOver || isAnimating) return
 
     setIsAnimating(true)
+    setRevealedRow([]) // Töröljük az előző felfedett sort
+
+    // Először jelöljük az összes cellát keverésre
+    setCells((prevCells) =>
+      prevCells.map((cell) => ({
+        ...cell,
+        isShuffling: true,
+        revealed: false,
+        revealOrder: null,
+      })),
+    )
 
     // Új elemek létrehozása
     const totalCells = gameConfig.rows * gameConfig.cols
@@ -144,47 +161,77 @@ export default function GamePage() {
     // Megkeverjük az elemek tömbjét
     items = shuffleArray(items)
 
-    // Frissítjük a cellákat
-    const updatedCells = Array.from({ length: totalCells }, (_, index) => ({
-      id: index,
-      revealed: false,
-      type: items[index],
-      points: gameConfig.pointsMap[items[index]],
-    }))
-
     // Véletlenszerűen kiválasztunk 5 cellát, amelyek felfedettek lesznek
-    const cellsToReveal = shuffleArray([...Array(totalCells).keys()]).slice(0, 5)
+    const cellsToReveal = shuffleArray([...Array(totalCells).keys()]).slice(0, gameConfig.revealCount)
     setLastRevealedCells(cellsToReveal)
 
-    // Frissítjük a cellákat, hogy a kiválasztottak felfedettek legyenek
-    cellsToReveal.forEach((cellId) => {
-      updatedCells[cellId].revealed = true
-    })
-
-    // Kiszámoljuk a pontváltozást
-    const pointsChange = cellsToReveal.reduce((total, cellId) => {
-      return total + updatedCells[cellId].points
-    }, 0)
-
-    // Frissítjük a pontszámot
-    setScore((prevScore) => prevScore + pointsChange)
-    setLastPointsChange(pointsChange)
-
-    // Csökkentjük a hátralévő lépések számát
-    setRemainingMoves((prevMoves) => {
-      const newMoves = prevMoves - 1
-      if (newMoves <= 0) {
-        setGameOver(true)
-      }
-      return newMoves
-    })
-
-    setCells(updatedCells)
-
-    // Animáció időzítő
+    // Keverési animáció után frissítjük a cellákat
     setTimeout(() => {
-      setIsAnimating(false)
-    }, 1000)
+      // Frissítjük a cellákat az új elemekkel
+      const updatedCells = Array.from({ length: totalCells }, (_, index) => ({
+        id: index,
+        revealed: false,
+        type: items[index],
+        points: gameConfig.pointsMap[items[index]],
+        isShuffling: false,
+        revealOrder: cellsToReveal.includes(index) ? cellsToReveal.indexOf(index) : null,
+      }))
+
+      setCells(updatedCells)
+
+      // Sorban felfedünk minden kiválasztott cellát
+      const revealedCellsData: Cell[] = cellsToReveal.map((cellId) => ({
+        ...updatedCells[cellId],
+        revealed: true,
+      }))
+
+      // Sorban felfedünk minden kiválasztott cellát
+      revealedCellsData.forEach((cell, index) => {
+        setTimeout(
+          () => {
+            // Hozzáadjuk a felfedett cellát a sorhoz
+            setRevealedRow((prev) => [...prev, cell])
+
+            // Az utolsó cella felfedése után frissítjük a pontszámot
+            if (index === revealedCellsData.length - 1) {
+              // Kiszámoljuk a pontváltozást
+              const pointsChange = cellsToReveal.reduce((total, cellId) => {
+                return total + updatedCells[cellId].points
+              }, 0)
+
+              // Frissítjük a pontszámot
+              setScore((prevScore) => prevScore + pointsChange)
+              setLastPointsChange(pointsChange)
+
+              // Csökkentjük a hátralévő lépések számát
+              setRemainingMoves((prevMoves) => {
+                const newMoves = prevMoves - 1
+                if (newMoves <= 0) {
+                  setGameOver(true)
+                }
+                return newMoves
+              })
+
+              // Frissítjük a cellákat, hogy a kiválasztottak felfedettek legyenek
+              setCells((prevCells) =>
+                prevCells.map((cell) => {
+                  if (cellsToReveal.includes(cell.id)) {
+                    return { ...cell, revealed: true }
+                  }
+                  return cell
+                }),
+              )
+
+              // Animáció befejezése
+              setTimeout(() => {
+                setIsAnimating(false)
+              }, 500)
+            }
+          },
+          400 * (index + 1),
+        ) // Minden cella 400ms késleltetéssel jelenik meg
+      })
+    }, 800) // Keverési animáció időtartama
   }
 
   // Ikon lekérése az elem típusához
@@ -274,6 +321,43 @@ export default function GamePage() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Felfedett elemek sora */}
+                <div className="mt-6">
+                  <h2 className="text-xl font-semibold mb-4 text-center">Felfedett Leletek</h2>
+                  <div className="bg-amber-100 p-4 rounded-lg border border-amber-200">
+                    <div className="flex justify-center gap-2">
+                      {Array.from({ length: gameConfig.revealCount }).map((_, index) => {
+                        const cell = revealedRow[index]
+                        return (
+                          <div
+                            key={index}
+                            className={`w-16 h-16 rounded-md flex items-center justify-center transition-all duration-300 ${cell
+                                ? "bg-amber-50 border-2 border-amber-300"
+                                : "bg-amber-200/50 border-2 border-amber-200/50"
+                              }`}
+                          >
+                            {cell && (
+                              <div className="relative w-full h-full p-2 flex flex-col items-center justify-center animate-fadeIn">
+                                {getItemIcon(cell.type, 24)}
+                                <span
+                                  className={`mt-1 text-xs font-bold px-1 rounded ${cell.points > 0
+                                      ? "bg-green-100 text-green-700"
+                                      : cell.points < 0
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-gray-100 text-gray-700"
+                                    }`}
+                                >
+                                  {cell.points > 0 ? `+${cell.points}` : cell.points}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="md:w-2/3">
@@ -289,12 +373,17 @@ export default function GamePage() {
                       {cells.map((cell) => (
                         <div
                           key={cell.id}
-                          className={`aspect-square border-2 rounded-md flex items-center justify-center transition-all ${cell.revealed
-                              ? lastRevealedCells.includes(cell.id)
-                                ? "border-yellow-400 bg-yellow-50 animate-pulse"
-                                : "border-amber-200 bg-amber-50"
-                              : "border-amber-300 bg-amber-100"
+                          className={`aspect-square border-2 rounded-md flex items-center justify-center transition-all duration-300 ${cell.isShuffling
+                              ? "animate-pulse border-amber-400 bg-amber-200"
+                              : cell.revealed
+                                ? lastRevealedCells.includes(cell.id)
+                                  ? "border-yellow-400 bg-yellow-50"
+                                  : "border-amber-200 bg-amber-50"
+                                : "border-amber-300 bg-amber-100"
                             }`}
+                          style={{
+                            animationDelay: cell.isShuffling ? `${Math.random() * 0.5}s` : "0s",
+                          }}
                           aria-label={cell.revealed ? `Felfedett mező: ${cell.type}` : "Felfedetlen mező"}
                         >
                           {cell.revealed ? (
@@ -312,7 +401,10 @@ export default function GamePage() {
                               </span>
                             </div>
                           ) : (
-                            <div className="w-full h-full bg-amber-500 rounded-sm flex items-center justify-center">
+                            <div
+                              className={`w-full h-full bg-amber-500 rounded-sm flex items-center justify-center ${cell.isShuffling ? "animate-spin" : ""
+                                }`}
+                            >
                               <Shovel className="text-white h-8 w-8" />
                             </div>
                           )}
@@ -323,6 +415,7 @@ export default function GamePage() {
                 </Card>
               </div>
             </div>
+
           </div>
         </div>
       </main>
