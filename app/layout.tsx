@@ -1,10 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Jost } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
 
-const inter = Inter({ subsets: ["latin"] })
+
+const inter = Jost({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Glimvora - Ingyenes Közösségi Platform",
@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Glimvora" }],
   creator: "Glimvora",
   publisher: "Glimvora",
+  metadataBase: new URL("https://glimvora.com"), // ✅ Додано для OpenGraph
   openGraph: {
     type: "website",
     locale: "hu_HU",
@@ -39,7 +40,6 @@ export const metadata: Metadata = {
       "Teljesen ingyenes közösségi platform régészeti kalandokhoz. Nincs valódi pénz nyeremény vagy veszteség.",
     images: ["/archaeology-hero.png"],
   },
-  viewport: "width=device-width, initial-scale=1",
   robots: {
     index: true,
     follow: true,
