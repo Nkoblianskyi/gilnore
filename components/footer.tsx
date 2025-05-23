@@ -52,15 +52,6 @@ export default function Footer() {
                     Főoldal
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    href="#contact"
-                    className="text-amber-200 hover:text-white transition-colors flex items-center text-sm sm:text-base"
-                  >
-                    <span className="bg-amber-800/50 w-1.5 h-1.5 rounded-full mr-2"></span>
-                    Kapcsolat
-                  </Link>
-                </li>
               </ul>
             </div>
 
